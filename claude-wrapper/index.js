@@ -13,7 +13,6 @@ function sseEvent(res, event, data) {
 
 app.post("/invoke", (req, res) => {
   const { prompt, model } = req.body ?? {};
-  console.log("Received prompt:", prompt);
 
   if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
     return res.status(400).json({ error: "Request body must include a non-empty 'prompt' string." });
@@ -36,7 +35,6 @@ app.post("/invoke", (req, res) => {
 
   runClaude(prompt.trim(), {
     onChunk(text) {
-      console.log("Claude chunk:", text);
       sseEvent(res, "chunk", { text });
     },
     onDone() {

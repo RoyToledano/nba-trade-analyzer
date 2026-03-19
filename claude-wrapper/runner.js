@@ -9,12 +9,15 @@ import { spawn } from "child_process";
  * @param {(text: string) => void} handlers.onChunk  - Called for each text token.
  * @param {() => void}             handlers.onDone   - Called on clean exit (code 0).
  * @param {(msg: string) => void}  handlers.onError  - Called on spawn failure or non-zero exit.
+ * @param {object} [options]
+ * @param {string} [options.model] - Model ID override (defaults to CLAUDE_MODEL env var or "claude-sonnet-4-6").
  */
-export function runClaude(prompt, { onChunk, onDone, onError }) {
+export function runClaude(prompt, { onChunk, onDone, onError }, options = {}) {
   let proc;
 
   try {
-    proc = spawn("claude", ["-p", prompt, "--output-format", "stream-json", "--verbose"], {
+    const model = options.model || process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+    proc = spawn("claude", ["-p", prompt, "--model", model, "--output-format", "stream-json", "--verbose"], {
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (err) {

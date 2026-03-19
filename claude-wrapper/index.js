@@ -12,8 +12,7 @@ function sseEvent(res, event, data) {
 }
 
 app.post("/invoke", (req, res) => {
-  const { prompt } = req.body ?? {};
-  console.log("Received prompt:", prompt);
+  const { prompt, model } = req.body ?? {};
 
   if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
     return res.status(400).json({ error: "Request body must include a non-empty 'prompt' string." });
@@ -36,7 +35,6 @@ app.post("/invoke", (req, res) => {
 
   runClaude(prompt.trim(), {
     onChunk(text) {
-      console.log("Claude chunk:", text);
       sseEvent(res, "chunk", { text });
     },
     onDone() {
@@ -47,7 +45,7 @@ app.post("/invoke", (req, res) => {
       sseEvent(res, "error", { message });
       finish();
     },
-  });
+  }, { model });
 
   // Clean up if the *client* disconnects (e.g. browser tab closed).
   // Listen on res "close" — req "close" fires too early with some clients.

@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(claude -p 'say hi' --output-format stream-json --verbose)",
-      "Bash(claude -p 'say hi' --output-format stream-json)"
+      "Bash(claude -p 'say hi' --output-format stream-json)",
+      "Bash(python3 -c \":*)",
+      "WebFetch(domain:docs.balldontlie.io)",
+      "WebFetch(domain:www.balldontlie.io)",
+      "WebFetch(domain:hoopshype.com)"
     ]
   }
 }

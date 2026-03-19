@@ -12,7 +12,7 @@ function sseEvent(res, event, data) {
 }
 
 app.post("/invoke", (req, res) => {
-  const { prompt } = req.body ?? {};
+  const { prompt, model } = req.body ?? {};
   console.log("Received prompt:", prompt);
 
   if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
@@ -47,7 +47,7 @@ app.post("/invoke", (req, res) => {
       sseEvent(res, "error", { message });
       finish();
     },
-  });
+  }, { model });
 
   // Clean up if the *client* disconnects (e.g. browser tab closed).
   // Listen on res "close" — req "close" fires too early with some clients.

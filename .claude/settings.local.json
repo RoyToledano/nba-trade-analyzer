@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(claude -p 'say hi' --output-format stream-json --verbose)",
+      "Bash(claude -p 'say hi' --output-format stream-json)"
+    ]
+  }
+}

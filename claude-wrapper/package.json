@@ -1,0 +1,14 @@
+{
+  "name": "claude-wrapper",
+  "version": "1.0.0",
+  "description": "Generic Claude CLI HTTP wrapper — streams CLI output as SSE",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

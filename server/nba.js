@@ -118,8 +118,12 @@ function hoopsHypeSeason() {
 }
 
 /**
- * Fetches current-season salary data from HoopsHype __NEXT_DATA__.
- * Returns an array of { playerName, salary } for the current season.
+ * Fetches salary data from HoopsHype __NEXT_DATA__.
+ * Returns an array of { playerName, currentSalary, totalRemaining } for players
+ * with a current-season contract.
+ *   - currentSalary: the player's salary for this season only
+ *   - totalRemaining: sum of all season salaries from the current season onward
+ *     (i.e. the total remaining contract value)
  * Gracefully returns [] if scraping fails.
  */
 export function getTeamSalaries(teamId) {
@@ -160,13 +164,19 @@ export function getTeamSalaries(teamId) {
         const result = [];
 
         for (const c of contracts) {
-          const seasonEntry = c.seasons?.find((s) => s.season === season);
-          if (seasonEntry) {
-            result.push({
-              playerName: c.playerName,
-              salary: seasonEntry.salary,
-            });
-          }
+          const currentEntry = c.seasons?.find((s) => s.season === season);
+          if (!currentEntry) continue;
+
+          // Sum all season salaries from the current season onward
+          const totalRemaining = c.seasons
+            .filter((s) => s.season >= season && typeof s.salary === "number")
+            .reduce((sum, s) => sum + s.salary, 0);
+
+          result.push({
+            playerName: c.playerName,
+            currentSalary: currentEntry.salary,
+            totalRemaining,
+          });
         }
         return result;
       }
@@ -210,10 +220,13 @@ export async function getPlayersWithSalaries(teamId) {
     getTeamSalaries(teamId),
   ]);
 
-  // Build a lookup: normalizedName → salary
+  // Build a lookup: normalizedName → { currentSalary, totalRemaining }
   const salaryMap = new Map();
   for (const entry of salaryEntries) {
-    salaryMap.set(normalizeName(entry.playerName), entry.salary);
+    salaryMap.set(normalizeName(entry.playerName), {
+      currentSalary: entry.currentSalary,
+      totalRemaining: entry.totalRemaining,
+    });
   }
 
   // Match balldontlie players to HoopsHype salaries
@@ -223,7 +236,8 @@ export async function getPlayersWithSalaries(teamId) {
   for (const p of allPlayers) {
     const key = normalizeName(`${p.first_name} ${p.last_name}`);
     if (salaryMap.has(key)) {
-      roster.push({ ...p, salary: salaryMap.get(key) });
+      const sal = salaryMap.get(key);
+      roster.push({ ...p, salary: sal.currentSalary, totalRemaining: sal.totalRemaining });
       matched.add(key);
     }
   }
@@ -239,7 +253,8 @@ export async function getPlayersWithSalaries(teamId) {
         first_name: parts[0],
         last_name: parts.slice(1).join(" "),
         position: "",
-        salary: entry.salary,
+        salary: entry.currentSalary,
+        totalRemaining: entry.totalRemaining,
       });
     }
   }

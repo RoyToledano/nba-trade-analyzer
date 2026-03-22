@@ -16,7 +16,6 @@ const GRADE_COLORS = {
 
 function parseGrades(text) {
   const grades = [];
-  // Match pattern: **Team Name**: A+ (or similar grade)
   const regex = /\*\*([^*]+)\*\*:\s*(A\+|A-?|B\+|B-?|C\+|C-?|D|F)\b/g;
   let m;
   while ((m = regex.exec(text)) !== null) {
@@ -35,15 +34,19 @@ function GradeCard({ team, grade }) {
       justifyContent: "space-between",
       background: colors.bg,
       border: `1px solid ${colors.border}`,
-      borderRadius: "var(--radius-sm)",
-      padding: "12px 18px",
+      borderRadius: "var(--radius)",
+      padding: "14px 18px",
     }}>
-      <span style={{ color: "var(--text-heading)", fontSize: 14, fontWeight: 500 }}>
+      <span style={{
+        color: "var(--text-heading)",
+        fontSize: 13,
+        fontWeight: 500,
+      }}>
         {team}
       </span>
       <span style={{
         fontFamily: "var(--font-display)",
-        fontSize: 32,
+        fontSize: 36,
         color: colors.text,
         lineHeight: 1,
         letterSpacing: 1,
@@ -61,13 +64,14 @@ export default function TradeAnalysis({ text, status, error, isStreaming, isDone
 
   return (
     <div style={styles.wrapper}>
+      {/* Header */}
       <div style={styles.headerRow}>
-        <span style={styles.title}>AI Analysis</span>
+        <span style={styles.title}>AI ANALYSIS</span>
         {isStreaming && <span style={styles.streamingBadge}>Analyzing trade...</span>}
         {isDone && <span style={styles.doneBadge}>Analysis complete</span>}
       </div>
 
-      {/* Grade cards — shown when analysis is complete */}
+      {/* Grade cards */}
       {grades.length > 0 && (
         <div style={styles.gradeRow}>
           {grades.map((g) => (
@@ -76,7 +80,7 @@ export default function TradeAnalysis({ text, status, error, isStreaming, isDone
         </div>
       )}
 
-      {/* Status messages (shown while loading, hidden once text starts) */}
+      {/* Status */}
       {status && !text && (
         <p style={styles.status}>{status}</p>
       )}
@@ -88,7 +92,7 @@ export default function TradeAnalysis({ text, status, error, isStreaming, isDone
         </div>
       )}
 
-      {/* Streaming markdown output */}
+      {/* Markdown */}
       {text && (
         <div style={styles.markdown}>
           <ReactMarkdown
@@ -110,24 +114,24 @@ export default function TradeAnalysis({ text, status, error, isStreaming, isDone
 
 const styles = {
   wrapper: {
-    background: "var(--bg-card)",
+    background: "var(--bg-surface)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius)",
-    padding: "24px 28px",
+    padding: "20px",
   },
   headerRow: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    marginBottom: 20,
-    paddingBottom: 16,
+    marginBottom: 16,
+    paddingBottom: 12,
     borderBottom: "1px solid var(--border)",
   },
   title: {
     fontFamily: "var(--font-display)",
-    fontSize: 22,
+    fontSize: 18,
+    letterSpacing: 2,
     color: "var(--text-heading)",
-    letterSpacing: 1,
   },
   streamingBadge: {
     fontSize: 11,
@@ -135,8 +139,8 @@ const styles = {
     color: "var(--accent)",
     background: "var(--accent-dim)",
     border: "1px solid var(--accent-border)",
-    borderRadius: 99,
-    padding: "2px 10px",
+    borderRadius: "var(--radius)",
+    padding: "3px 10px",
     animation: "pulse 1.5s ease-in-out infinite",
   },
   doneBadge: {
@@ -144,13 +148,13 @@ const styles = {
     fontWeight: 500,
     color: "var(--green)",
     background: "var(--green-dim)",
-    borderRadius: 99,
-    padding: "2px 10px",
+    borderRadius: "var(--radius)",
+    padding: "3px 10px",
   },
   gradeRow: {
     display: "flex",
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   status: {
     color: "var(--text-muted)",
@@ -161,7 +165,7 @@ const styles = {
     color: "var(--red)",
     background: "var(--red-dim)",
     border: "1px solid var(--red-border)",
-    borderRadius: "var(--radius-sm)",
+    borderRadius: "var(--radius)",
     padding: "12px 16px",
     fontSize: 13,
   },
@@ -171,28 +175,28 @@ const styles = {
   },
   mdH2: {
     fontFamily: "var(--font-display)",
-    fontSize: 20,
-    letterSpacing: 0.5,
+    fontSize: 18,
+    letterSpacing: 1,
     color: "var(--accent)",
-    marginTop: 28,
-    marginBottom: 10,
+    marginTop: 24,
+    marginBottom: 8,
     paddingBottom: 6,
-    borderBottom: "1px solid var(--accent-border)",
+    borderBottom: "1px solid var(--border)",
   },
   mdP: {
-    marginBottom: 12,
-    fontSize: 14,
+    marginBottom: 10,
+    fontSize: 13,
   },
   mdStrong: {
     color: "var(--text-heading)",
     fontWeight: 600,
   },
   mdUl: {
-    paddingLeft: 20,
-    marginBottom: 12,
+    paddingLeft: 18,
+    marginBottom: 10,
   },
   mdLi: {
-    fontSize: 14,
-    marginBottom: 4,
+    fontSize: 13,
+    marginBottom: 3,
   },
 };

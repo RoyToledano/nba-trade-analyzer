@@ -20,8 +20,8 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
 
   return (
     <div style={styles.panel}>
-      {/* Panel header */}
-      <div style={styles.header}>
+      {/* Team selector */}
+      <div style={styles.selectorArea}>
         <span style={styles.label}>{label}</span>
         <select
           style={styles.select}
@@ -29,7 +29,7 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
           onChange={handleTeamSelect}
           disabled={teamsLoading}
         >
-          <option value="">Select a team…</option>
+          <option value="">Select a team...</option>
           {teams.map((t) => (
             <option key={t.id} value={t.id}>
               {t.full_name}
@@ -38,18 +38,60 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
         </select>
       </div>
 
-      {/* Roster */}
+      {/* Outgoing zone */}
+      {team.id && (
+        <div style={styles.outgoingZone}>
+          <span style={styles.zoneLabel}>TRADING AWAY</span>
+          <div style={styles.outgoingList}>
+            {team.sending.length === 0 ? (
+              <span style={styles.zonePlaceholder}>
+                Select players below to trade
+              </span>
+            ) : (
+              team.sending.map((p) => (
+                <div
+                  key={p.id}
+                  style={styles.outgoingChip}
+                  onClick={() => onTogglePlayer(p)}
+                >
+                  <span style={styles.chipName}>
+                    {p.first_name} {p.last_name}
+                  </span>
+                  <span style={styles.chipSalary}>
+                    {p.salary != null ? fmt.format(p.salary) : ""}
+                  </span>
+                  <span style={styles.chipRemove}>×</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Roster list */}
       <div style={styles.roster}>
         {!team.id && (
-          <p style={styles.empty}>Select a team to load its roster.</p>
+          <div style={styles.emptyState}>
+            <span style={styles.emptyIcon}>🏀</span>
+            <span style={styles.emptyText}>Select a team to view roster</span>
+          </div>
         )}
 
         {playersLoading && (
-          <p style={styles.loading}>Loading roster…</p>
+          <div style={styles.emptyState}>
+            <span style={styles.emptyText}>Loading roster...</span>
+          </div>
         )}
 
         {playersError && (
           <p style={styles.errorMsg}>{playersError}</p>
+        )}
+
+        {!playersLoading && !playersError && team.id && (
+          <div style={styles.rosterHeader}>
+            <span style={styles.rosterHeaderCell}>PLAYER</span>
+            <span style={{ ...styles.rosterHeaderCell, textAlign: "right" }}>SALARY</span>
+          </div>
         )}
 
         {!playersLoading && !playersError && players.map((player) => {
@@ -60,12 +102,10 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
               style={{ ...styles.playerRow, ...(isOut ? styles.playerRowOut : {}) }}
               onClick={() => onTogglePlayer(player)}
             >
-              <div style={styles.playerInfo}>
+              <div style={styles.playerLeft}>
+                <span style={styles.position}>{player.position || "—"}</span>
                 <span style={styles.playerName}>
                   {player.first_name} {player.last_name}
-                </span>
-                <span style={styles.playerMeta}>
-                  {player.position || "—"}
                 </span>
               </div>
               <div style={styles.playerRight}>
@@ -79,9 +119,11 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
                     </span>
                   )}
                 </div>
-                <span style={{ ...styles.badge, ...(isOut ? styles.badgeOut : styles.badgeDefault) }}>
-                  {isOut ? "OUT" : "+"}
-                </span>
+                {isOut ? (
+                  <span style={styles.tradingBadge}>TRADING</span>
+                ) : (
+                  <span style={styles.addBtn}>+</span>
+                )}
               </div>
             </div>
           );
@@ -95,57 +137,126 @@ const styles = {
   panel: {
     flex: 1,
     minWidth: 0,
-    background: "var(--bg-card)",
+    background: "var(--bg-surface)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius)",
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
   },
-  header: {
-    padding: "16px 20px",
-    borderBottom: "1px solid var(--border)",
+  selectorArea: {
+    padding: "14px 16px",
     display: "flex",
     alignItems: "center",
     gap: 12,
+    borderBottom: "1px solid var(--border)",
   },
   label: {
     fontFamily: "var(--font-display)",
-    fontSize: 18,
-    color: "var(--accent)",
-    letterSpacing: 1,
+    fontSize: 14,
+    letterSpacing: 2,
+    color: "var(--text-muted)",
     flexShrink: 0,
   },
   select: {
     flex: 1,
-    background: "var(--bg)",
+    background: "var(--bg-input)",
     color: "var(--text-heading)",
-    border: "1px solid var(--border-light)",
-    borderRadius: "var(--radius-sm)",
-    padding: "7px 10px",
-    fontSize: 13,
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    padding: "8px 12px",
+    fontSize: 14,
     cursor: "pointer",
+    outline: "none",
+    transition: "border-color 0.2s",
+  },
+  outgoingZone: {
+    margin: "12px 16px",
+    padding: "12px",
+    border: "1px dashed var(--border-dashed)",
+    borderRadius: "var(--radius)",
+    minHeight: 60,
+  },
+  zoneLabel: {
+    fontFamily: "var(--font-display)",
+    fontSize: 11,
+    letterSpacing: 2,
+    color: "var(--accent)",
+    display: "block",
+    marginBottom: 8,
+  },
+  outgoingList: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  zonePlaceholder: {
+    fontSize: 12,
+    color: "var(--text-muted)",
+  },
+  outgoingChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "var(--accent-dim)",
+    border: "1px solid var(--accent-border)",
+    borderRadius: "var(--radius)",
+    padding: "4px 10px",
+    cursor: "pointer",
+    transition: "background 0.15s",
+  },
+  chipName: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: "var(--text-heading)",
+  },
+  chipSalary: {
+    fontSize: 10,
+    fontFamily: "var(--font-mono)",
+    color: "var(--text-muted)",
+  },
+  chipRemove: {
+    fontSize: 14,
+    color: "var(--text-muted)",
+    marginLeft: 2,
+    lineHeight: 1,
   },
   roster: {
     flex: 1,
     overflowY: "auto",
-    maxHeight: 420,
+    maxHeight: 440,
   },
-  empty: {
-    padding: "32px 20px",
-    textAlign: "center",
-    color: "var(--text-muted)",
-    fontSize: 13,
+  rosterHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "6px 16px",
+    borderBottom: "1px solid var(--border)",
   },
-  loading: {
-    padding: "32px 20px",
-    textAlign: "center",
+  rosterHeaderCell: {
+    fontSize: 10,
+    fontWeight: 600,
+    letterSpacing: 1.5,
     color: "var(--text-muted)",
+    textTransform: "uppercase",
+  },
+  emptyState: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "48px 20px",
+    gap: 8,
+  },
+  emptyIcon: {
+    fontSize: 28,
+    opacity: 0.4,
+  },
+  emptyText: {
     fontSize: 13,
-    fontStyle: "italic",
+    color: "var(--text-muted)",
   },
   errorMsg: {
-    padding: "16px 20px",
+    padding: "16px",
     color: "var(--red)",
     fontSize: 13,
   },
@@ -153,21 +264,29 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "10px 20px",
-    borderBottom: "1px solid var(--border)",
+    padding: "8px 16px",
+    borderBottom: "1px solid var(--border-light)",
     cursor: "pointer",
-    transition: "background 0.12s",
+    transition: "background 0.15s",
     userSelect: "none",
   },
   playerRowOut: {
-    background: "var(--red-dim)",
-    borderBottom: "1px solid var(--red-border)",
+    background: "var(--accent-dim)",
   },
-  playerInfo: {
+  playerLeft: {
     display: "flex",
     alignItems: "center",
     gap: 10,
     minWidth: 0,
+  },
+  position: {
+    fontFamily: "var(--font-mono)",
+    fontSize: 10,
+    fontWeight: 500,
+    color: "var(--text-muted)",
+    width: 20,
+    textAlign: "center",
+    flexShrink: 0,
   },
   playerName: {
     color: "var(--text-heading)",
@@ -176,11 +295,6 @@ const styles = {
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
-  },
-  playerMeta: {
-    color: "var(--text-muted)",
-    fontSize: 11,
-    flexShrink: 0,
   },
   playerRight: {
     display: "flex",
@@ -197,29 +311,32 @@ const styles = {
   salary: {
     fontFamily: "var(--font-mono)",
     fontSize: 11,
-    color: "var(--text-muted)",
+    color: "var(--text)",
   },
   totalRemaining: {
     fontFamily: "var(--font-mono)",
     fontSize: 9,
     color: "var(--text-muted)",
-    opacity: 0.6,
   },
-  badge: {
-    fontSize: 10,
-    fontWeight: 600,
-    letterSpacing: 0.5,
-    padding: "2px 7px",
-    borderRadius: 99,
-    border: "1px solid transparent",
-  },
-  badgeDefault: {
+  addBtn: {
+    width: 22,
+    height: 22,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 14,
     color: "var(--text-muted)",
-    borderColor: "var(--border-light)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius)",
+    lineHeight: 1,
   },
-  badgeOut: {
-    color: "var(--red)",
-    borderColor: "var(--red-border)",
-    background: "var(--red-dim)",
+  tradingBadge: {
+    fontFamily: "var(--font-display)",
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: "var(--accent)",
+    border: "1px solid var(--accent-border)",
+    borderRadius: "var(--radius)",
+    padding: "2px 6px",
   },
 };

@@ -24,7 +24,8 @@
       "Bash(curl:*)",
       "Bash(node:*)",
       "Bash(npm create:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "WebFetch(domain:fanspo.com)"
     ]
   }
 }

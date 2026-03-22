@@ -5,7 +5,6 @@ import TradeAnalysis from "./components/TradeAnalysis.jsx";
 
 const emptyTeam = () => ({ id: null, name: "", sending: [] });
 
-// Parse a single SSE message block (text between \n\n separators)
 function parseSSEBlock(block) {
   let type = "message";
   const dataLines = [];
@@ -53,7 +52,6 @@ export default function App() {
   }
 
   async function handleAnalyze() {
-    // Reset analysis state
     setAnalysisText("");
     setStatusMsg("");
     setErrorMsg("");
@@ -72,7 +70,6 @@ export default function App() {
         throw new Error(json.error ?? `Server error ${res.status}`);
       }
 
-      // Consume the SSE stream manually via ReadableStream
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -83,7 +80,7 @@ export default function App() {
 
         buffer += decoder.decode(value, { stream: true });
         const parts = buffer.split("\n\n");
-        buffer = parts.pop(); // keep the incomplete trailing part
+        buffer = parts.pop();
 
         for (const part of parts) {
           const event = parseSSEBlock(part);
@@ -104,7 +101,6 @@ export default function App() {
         }
       }
 
-      // Stream ended without a done event — treat as complete
       setIsStreaming(false);
       setIsDone(true);
     } catch (err) {
@@ -113,45 +109,57 @@ export default function App() {
     }
   }
 
+  const canAnalyze =
+    teamA.sending.length > 0 && teamB.sending.length > 0 && !isStreaming;
+
   return (
     <div style={styles.page}>
-      {/* Header */}
+      {/* Top bar */}
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <h1 style={styles.logo}>NBA Trade Analyzer</h1>
-          <p style={styles.tagline}>
-            Build a trade. Get instant AI analysis.
-          </p>
+          <h1 style={styles.logo}>NBA TRADE ANALYZER</h1>
+          <div style={styles.headerRight}>
+            <button
+              style={{
+                ...styles.analyzeBtn,
+                ...(canAnalyze ? {} : styles.analyzeBtnDisabled),
+              }}
+              onClick={handleAnalyze}
+              disabled={!canAnalyze}
+            >
+              {isStreaming ? "ANALYZING..." : "ANALYZE TRADE"}
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main content */}
+      {/* Trade panels */}
       <main style={styles.main}>
-        {/* Team panels */}
-        <div style={styles.panels}>
+        <div style={styles.tradeArea}>
           <TeamPanel
-            label="TEAM A"
+            label="TEAM 1"
             team={teamA}
             onTeamChange={(t) => handleTeamChange("A", t)}
             onTogglePlayer={(p) => handleTogglePlayer("A", p)}
           />
+
+          {/* Center divider with trade arrows */}
+          <div style={styles.divider}>
+            <div style={styles.arrowIcon}>⇄</div>
+          </div>
+
           <TeamPanel
-            label="TEAM B"
+            label="TEAM 2"
             team={teamB}
             onTeamChange={(t) => handleTeamChange("B", t)}
             onTogglePlayer={(p) => handleTogglePlayer("B", p)}
           />
         </div>
 
-        {/* Trade summary + analyze button */}
-        <TradeSummary
-          teamA={teamA}
-          teamB={teamB}
-          onAnalyze={handleAnalyze}
-          isAnalyzing={isStreaming}
-        />
+        {/* Trade summary */}
+        <TradeSummary teamA={teamA} teamB={teamB} />
 
-        {/* Streaming analysis */}
+        {/* Analysis output */}
         <TradeAnalysis
           text={analysisText}
           status={statusMsg}
@@ -160,10 +168,6 @@ export default function App() {
           isDone={isDone}
         />
       </main>
-
-      <footer style={styles.footer}>
-        NBA Trade Analyzer · AI-Powered Trade Analysis
-      </footer>
     </div>
   );
 }
@@ -173,50 +177,83 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
+    background: "var(--bg)",
   },
   header: {
+    background: "var(--bg-surface)",
     borderBottom: "1px solid var(--border)",
-    padding: "20px 0",
+    position: "sticky",
+    top: 0,
+    zIndex: 100,
   },
   headerInner: {
-    maxWidth: 1200,
+    maxWidth: 1440,
     margin: "0 auto",
-    padding: "0 24px",
+    padding: "12px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   logo: {
     fontFamily: "var(--font-display)",
-    fontSize: 36,
-    letterSpacing: 2,
+    fontSize: 28,
+    letterSpacing: 3,
     color: "var(--text-heading)",
     margin: 0,
     lineHeight: 1,
   },
-  tagline: {
-    fontSize: 13,
-    color: "var(--text-muted)",
-    marginTop: 6,
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  analyzeBtn: {
+    background: "var(--accent)",
+    color: "#fff",
+    fontFamily: "var(--font-display)",
+    fontSize: 15,
+    letterSpacing: 2,
+    padding: "8px 28px",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--accent-border)",
+    transition: "opacity 0.2s",
+  },
+  analyzeBtnDisabled: {
+    opacity: 0.35,
+    cursor: "not-allowed",
   },
   main: {
     flex: 1,
-    maxWidth: 1200,
+    maxWidth: 1440,
     width: "100%",
     margin: "0 auto",
-    padding: "24px",
+    padding: "16px 24px 40px",
     display: "flex",
     flexDirection: "column",
     gap: 16,
   },
-  panels: {
+  tradeArea: {
     display: "flex",
-    gap: 16,
-    alignItems: "flex-start",
+    gap: 0,
+    alignItems: "stretch",
   },
-  footer: {
-    borderTop: "1px solid var(--border)",
-    padding: "16px 24px",
-    textAlign: "center",
-    fontSize: 11,
-    color: "var(--text-muted)",
-    fontFamily: "var(--font-mono)",
+  divider: {
+    width: 48,
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  arrowIcon: {
+    fontSize: 22,
+    color: "var(--accent)",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "50%",
+    width: 40,
+    height: 40,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };

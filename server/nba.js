@@ -47,132 +47,142 @@ const THIRTY_MIN = 30 * 60 * 1000;
 export function getTeams() {
   return cached("teams", ONE_HOUR, async () => {
     const json = await bdlFetch("/teams");
-    return json.data;
+    // IDs 1–30 are current NBA teams; higher IDs are defunct/historical
+    return json.data.filter((t) => t.id <= 30);
   });
 }
 
-// ── Active Players ───────────────────────────────────────────────────────────
+// ── All Players for a Team (paginated) ───────────────────────────────────────
 
-export function getActivePlayers(teamId) {
-  return cached(`players:${teamId}`, THIRTY_MIN, async () => {
-    const json = await bdlFetch(
-      `/players/active?team_ids[]=${teamId}&per_page=100`
-    );
-    return json.data;
+async function getAllPlayersForTeam(teamId) {
+  return cached(`allPlayers:${teamId}`, THIRTY_MIN, async () => {
+    const all = [];
+    let cursor = null;
+
+    while (true) {
+      const qs = cursor
+        ? `/players?team_ids[]=${teamId}&per_page=100&cursor=${cursor}`
+        : `/players?team_ids[]=${teamId}&per_page=100`;
+
+      const json = await bdlFetch(qs);
+      all.push(...json.data);
+
+      cursor = json.meta?.next_cursor;
+      if (!cursor) break;
+    }
+
+    return all;
   });
-}
-
-// ── Season Averages ──────────────────────────────────────────────────────────
-
-/**
- * Returns a Map<playerId, { pts, reb, ast, min }>.
- * `season` defaults to the current NBA season year.
- */
-export async function getSeasonAverages(playerIds) {
-  if (!playerIds.length) return new Map();
-
-  const season = currentNbaSeason();
-  const qs = playerIds.map((id) => `player_ids[]=${id}`).join("&");
-  const json = await bdlFetch(
-    `/season_averages?season=${season}&${qs}`
-  );
-
-  const map = new Map();
-  for (const row of json.data) {
-    map.set(row.player_id, {
-      pts: row.pts,
-      reb: row.reb,
-      ast: row.ast,
-      min: row.min,
-    });
-  }
-  return map;
-}
-
-/** NBA season year: Oct–Jun → the year the season started in. */
-function currentNbaSeason() {
-  const now = new Date();
-  return now.getMonth() >= 9 ? now.getFullYear() : now.getFullYear() - 1;
 }
 
 // ── HoopsHype Salaries ───────────────────────────────────────────────────────
 
-// Maps balldontlie team id → HoopsHype URL slug
+// Maps balldontlie team full_name → HoopsHype URL slug (underscore format)
 const TEAM_SLUG = {
-  1: "atlanta-hawks",
-  2: "boston-celtics",
-  3: "brooklyn-nets",
-  4: "charlotte-hornets",
-  5: "chicago-bulls",
-  6: "cleveland-cavaliers",
-  7: "dallas-mavericks",
-  8: "denver-nuggets",
-  9: "detroit-pistons",
-  10: "golden-state-warriors",
-  11: "houston-rockets",
-  12: "indiana-pacers",
-  13: "los-angeles-clippers",
-  14: "los-angeles-lakers",
-  15: "memphis-grizzlies",
-  16: "miami-heat",
-  17: "milwaukee-bucks",
-  18: "minnesota-timberwolves",
-  19: "new-orleans-pelicans",
-  20: "new-york-knicks",
-  21: "oklahoma-city-thunder",
-  22: "orlando-magic",
-  23: "philadelphia-76ers",
-  24: "phoenix-suns",
-  25: "portland-trail-blazers",
-  26: "sacramento-kings",
-  27: "san-antonio-spurs",
-  28: "toronto-raptors",
-  29: "utah-jazz",
-  30: "washington-wizards",
+  1: "atlanta_hawks",
+  2: "boston_celtics",
+  3: "brooklyn_nets",
+  4: "charlotte_hornets",
+  5: "chicago_bulls",
+  6: "cleveland_cavaliers",
+  7: "dallas_mavericks",
+  8: "denver_nuggets",
+  9: "detroit_pistons",
+  10: "golden_state_warriors",
+  11: "houston_rockets",
+  12: "indiana_pacers",
+  13: "los_angeles_clippers",
+  14: "los_angeles_lakers",
+  15: "memphis_grizzlies",
+  16: "miami_heat",
+  17: "milwaukee_bucks",
+  18: "minnesota_timberwolves",
+  19: "new_orleans_pelicans",
+  20: "new_york_knicks",
+  21: "oklahoma_city_thunder",
+  22: "orlando_magic",
+  23: "philadelphia_76ers",
+  24: "phoenix_suns",
+  25: "portland_trail_blazers",
+  26: "sacramento_kings",
+  27: "san_antonio_spurs",
+  28: "toronto_raptors",
+  29: "utah_jazz",
+  30: "washington_wizards",
 };
 
+/** HoopsHype uses season end year: 2025-26 season → 2026 */
+function hoopsHypeSeason() {
+  const now = new Date();
+  return now.getMonth() >= 9 ? now.getFullYear() + 1 : now.getFullYear();
+}
+
 /**
- * Scrapes current-season salary data from HoopsHype.
- * Returns a Map<normalizedName, salaryNumber>.
- * Gracefully returns an empty map if scraping fails.
+ * Fetches current-season salary data from HoopsHype __NEXT_DATA__.
+ * Returns an array of { playerName, salary } for the current season.
+ * Gracefully returns [] if scraping fails.
  */
 export function getTeamSalaries(teamId) {
   const slug = TEAM_SLUG[teamId];
-  if (!slug) return Promise.resolve(new Map());
+  if (!slug) return Promise.resolve([]);
 
   return cached(`salaries:${teamId}`, THIRTY_MIN, async () => {
-    const map = new Map();
     try {
-      const url = `https://hoopshype.com/salaries/${slug}/`;
+      const url = `https://www.hoopshype.com/salaries/${slug}/`;
       const res = await fetch(url, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         },
+        redirect: "follow",
       });
-      if (!res.ok) return map;
+      if (!res.ok) return [];
 
       const html = await res.text();
 
-      // HoopsHype renders salary tables with player names and dollar amounts.
-      // We look for the data table rows: <td class="name">Player</td> <td class="hh-salaries-sorted">$XX,XXX,XXX</td>
-      const rowRegex =
-        /<td\s+class="name"[^>]*>.*?<a[^>]*>([^<]+)<\/a>.*?<td\s+class="hh-salaries-sorted"[^>]*>\s*\$([0-9,]+)/gs;
+      // Extract __NEXT_DATA__ JSON
+      const match = html.match(
+        /<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/
+      );
+      if (!match) return [];
 
-      let match;
-      while ((match = rowRegex.exec(html)) !== null) {
-        const name = normalizeName(match[1]);
-        const salary = parseInt(match[2].replace(/,/g, ""), 10);
-        if (name && !isNaN(salary)) {
-          map.set(name, salary);
+      const nextData = JSON.parse(match[1]);
+      const queries =
+        nextData?.props?.pageProps?.dehydratedState?.queries ?? [];
+
+      // Find the query with contracts data
+      for (const q of queries) {
+        const contracts =
+          q?.state?.data?.contracts?.contracts;
+        if (!Array.isArray(contracts)) continue;
+
+        const season = hoopsHypeSeason();
+        const result = [];
+
+        for (const c of contracts) {
+          const seasonEntry = c.seasons?.find((s) => s.season === season);
+          if (seasonEntry) {
+            result.push({
+              playerName: c.playerName,
+              salary: seasonEntry.salary,
+            });
+          }
         }
+        return result;
       }
+
+      return [];
     } catch (err) {
-      console.warn(`Failed to scrape salaries for team ${teamId}:`, err.message);
+      console.warn(
+        `Failed to scrape salaries for team ${teamId}:`,
+        err.message
+      );
+      return [];
     }
-    return map;
   });
 }
+
+// ── Name Matching ────────────────────────────────────────────────────────────
 
 /** Lowercase, strip accents/non-alpha, collapse spaces. */
 function normalizeName(raw) {
@@ -185,20 +195,67 @@ function normalizeName(raw) {
     .trim();
 }
 
-// ── Combined: Players + Salaries ─────────────────────────────────────────────
+// ── Combined: Active Roster with Salaries ────────────────────────────────────
 
 /**
- * Returns the active roster for a team, each player enriched with `salary`
- * (number | null).
+ * Returns the active roster for a team by cross-referencing balldontlie
+ * players with HoopsHype salary data. A player is "active" if they have
+ * a current-season contract on HoopsHype.
+ *
+ * Each returned player has: { id, first_name, last_name, position, ... , salary }
  */
 export async function getPlayersWithSalaries(teamId) {
-  const [players, salaryMap] = await Promise.all([
-    getActivePlayers(teamId),
+  const [allPlayers, salaryEntries] = await Promise.all([
+    getAllPlayersForTeam(teamId),
     getTeamSalaries(teamId),
   ]);
 
-  return players.map((p) => {
+  // Build a lookup: normalizedName → salary
+  const salaryMap = new Map();
+  for (const entry of salaryEntries) {
+    salaryMap.set(normalizeName(entry.playerName), entry.salary);
+  }
+
+  // Match balldontlie players to HoopsHype salaries
+  const roster = [];
+  const matched = new Set();
+
+  for (const p of allPlayers) {
     const key = normalizeName(`${p.first_name} ${p.last_name}`);
-    return { ...p, salary: salaryMap.get(key) ?? null };
-  });
+    if (salaryMap.has(key)) {
+      roster.push({ ...p, salary: salaryMap.get(key) });
+      matched.add(key);
+    }
+  }
+
+  // Any HoopsHype players not matched to balldontlie (e.g. rookies not yet
+  // in balldontlie DB) — add them with minimal info
+  for (const entry of salaryEntries) {
+    const key = normalizeName(entry.playerName);
+    if (!matched.has(key)) {
+      const parts = entry.playerName.trim().split(/\s+/);
+      roster.push({
+        id: null,
+        first_name: parts[0],
+        last_name: parts.slice(1).join(" "),
+        position: "",
+        salary: entry.salary,
+      });
+    }
+  }
+
+  // Sort by salary descending
+  roster.sort((a, b) => (b.salary ?? 0) - (a.salary ?? 0));
+
+  return roster;
+}
+
+// ── Season Averages ──────────────────────────────────────────────────────────
+// Note: season_averages and stats endpoints require a paid balldontlie tier.
+// This function is kept for future use; currently returns an empty Map.
+
+export async function getSeasonAverages(playerIds) {
+  // Free tier doesn't support stats/season_averages endpoints.
+  // Return empty map — prompt.js handles "Stats N/A" gracefully.
+  return new Map();
 }

@@ -7,7 +7,22 @@
       "Bash(python3 -c \":*)",
       "WebFetch(domain:docs.balldontlie.io)",
       "WebFetch(domain:www.balldontlie.io)",
-      "WebFetch(domain:hoopshype.com)"
+      "WebFetch(domain:hoopshype.com)",
+      "Bash(source /Users/Roy.Toledano/Library/CloudStorage/OneDrive-Fairtility/Documents/personal-projects/nba-trade-analyzer/server/.env)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.balldontlie.io/v1/players/active?team_ids[]=25&per_page=5\" -H \"Authorization: $BALLDONTLIE_API_KEY\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=5\" -H \"Authorization: $BALLDONTLIE_API_KEY\")",
+      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=5\" -H 'Authorization: $BALLDONTLIE_API_KEY')",
+      "Bash(python3 -m json.tool)",
+      "Bash(echo KEY=[$BALLDONTLIE_API_KEY])",
+      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=5\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
+      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=100\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f''''count={len\\(d[\"\"data\"\"]\\)} next_cursor={d[\"\"meta\"\"].get\\(\"\"next_cursor\"\"\\)}''''\\)\")",
+      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=100&cursor=2965\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
+      "Bash(curl -s \"https://api.balldontlie.io/v1/season_averages?season=2025&player_ids[]=666786\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
+      "Bash(curl -s \"https://api.balldontlie.io/v1/stats?seasons[]=2024&player_ids[]=666786&per_page=5\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
+      "Bash(curl -s \"https://hoopshype.com/salaries/portland-trail-blazers/\" -H \"User-Agent: Mozilla/5.0\")",
+      "Bash(curl:*)",
+      "Bash(node:*)"
     ]
   }
 }

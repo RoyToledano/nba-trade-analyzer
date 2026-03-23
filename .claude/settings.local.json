@@ -22,7 +22,10 @@
       "Bash(curl -s \"https://api.balldontlie.io/v1/stats?seasons[]=2024&player_ids[]=666786&per_page=5\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
       "Bash(curl -s \"https://hoopshype.com/salaries/portland-trail-blazers/\" -H \"User-Agent: Mozilla/5.0\")",
       "Bash(curl:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm create:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:fanspo.com)"
     ]
   }
 }

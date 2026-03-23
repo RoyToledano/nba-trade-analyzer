@@ -269,7 +269,8 @@ Analyze this trade... Respond using exactly these markdown section headers:
 | Framework | React 18 |
 | Bundler | Vite 5 |
 | Styling | CSS (inline/scoped), CSS variables |
-| Streaming | `EventSource` (Web API) |
+| Streaming | `fetch()` + `ReadableStream` (see Design Decisions) |
+| Markdown rendering | `react-markdown` |
 | Fonts | Bebas Neue (display), DM Sans (body), DM Mono (code) — Google Fonts |
 
 ### External Services
@@ -283,6 +284,12 @@ Analyze this trade... Respond using exactly these markdown section headers:
 ---
 
 ## 7. Design Decisions & Rationale
+
+### `fetch()` + `ReadableStream` over `EventSource` for SSE
+The design originally specified `EventSource (Web API)` for consuming the `POST /api/analyze` SSE stream. However, the browser's native `EventSource` API only supports GET requests — it cannot send a POST body. The implementation uses `fetch()` with `response.body.getReader()` instead, which is the same ReadableStream pattern used in the server to relay from the Claude Wrapper. SSE blocks are split on `\n\n` and parsed manually with the same `parseSSEBlock` logic. No extra dependency is needed.
+
+### `react-markdown` for AI output rendering
+The `TradeAnalysis` component renders Claude's markdown output (section headers, bold text, paragraphs) using `react-markdown`. Rendering without a library would either require complex regex parsing or display raw `##` and `**` characters in the UI. `react-markdown` is a minimal, dependency-light library that handles this correctly. Each markdown element maps to a component with custom inline styles so no additional CSS framework is needed.
 
 ### Claude CLI over Anthropic API
 Using the `claude` CLI subprocess instead of the Anthropic API directly avoids managing API keys in the application and reuses existing authentication. The CLI wrapper is fully decoupled from NBA logic.

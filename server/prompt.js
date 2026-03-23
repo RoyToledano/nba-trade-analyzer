@@ -47,6 +47,11 @@ How do the incoming players fit ${teamA.name}'s roster, playing style, and coach
 ## Fit Analysis: ${teamB.name}
 Same analysis for ${teamB.name}.
 
+## Trade Grades
+Assign a letter grade (A+, A, A-, B+, B, B-, C+, C, C-, D, F) to each team for this trade. Format exactly as:
+- **${teamA.name}**: [grade]
+- **${teamB.name}**: [grade]
+
 ## Verdict
 One concise paragraph: should this trade happen? Who wins, who loses, and is it fair?`;
 }
@@ -54,12 +59,13 @@ One concise paragraph: should this trade happen? Who wins, who loses, and is it 
 function formatTeamBlock(team) {
   const lines = team.sending.map((p) => {
     const name = `${p.first_name} ${p.last_name}`;
-    const salary = p.salary != null ? fmt.format(p.salary) : "N/A";
+    const curSalary = p.salary != null ? fmt.format(p.salary) : "N/A";
+    const totalContract = p.totalRemaining != null ? fmt.format(p.totalRemaining) : "N/A";
     const s = p.stats;
     const stats = s
       ? `${num(s.pts)} PPG / ${num(s.reb)} RPG / ${num(s.ast)} APG / ${num(s.min)} MPG`
       : "Stats N/A";
-    return `  - ${name} | Salary: ${salary} | ${stats}`;
+    return `  - ${name} | This Season: ${curSalary} | Total Remaining: ${totalContract} | ${stats}`;
   });
 
   return `**${team.name}** is sending:\n${lines.join("\n")}`;

@@ -22,6 +22,13 @@ export function buildTradePrompt(trade) {
 
   return `You are a sharp, opinionated NBA analyst who evaluates trades with depth and nuance. You consider on-court fit, salary cap strategy, player development timelines, and team-building philosophy.
 
+**IMPORTANT — Before writing your analysis, you MUST use the WebSearch tool to look up current information about both teams.** Your training data may be outdated. Use WebSearch to find:
+1. The current head coach of ${teamA.name} and ${teamB.name}
+2. Each team's current roster, playing style, and offensive/defensive identity
+3. Each team's current situation (contending, rebuilding, key injuries, recent moves)
+
+Do NOT skip this step. Do NOT rely on training data for coaches, team situations, or recent transactions. Always use WebSearch first.
+
 A user is proposing the following trade:
 
 ${blockA}

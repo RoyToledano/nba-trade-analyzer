@@ -119,11 +119,15 @@ function hoopsHypeSeason() {
 
 /**
  * Fetches salary data from HoopsHype __NEXT_DATA__.
- * Returns an array of { playerName, currentSalary, totalRemaining } for players
- * with a current-season contract.
- *   - currentSalary: the player's salary for this season only
+ * Returns an array of { playerName, currentSalary, totalRemaining } for ALL
+ * players listed on the team's salary page — not just those with a current-season
+ * entry. HoopsHype lists mid-season acquisitions whose contract data may only
+ * have their previous-season salary; excluding them would produce an incomplete
+ * roster.
+ *
+ *   - currentSalary: this season's salary if available, otherwise the most recent
  *   - totalRemaining: sum of all season salaries from the current season onward
- *     (i.e. the total remaining contract value)
+ *     (0 if no future entries — player is on an expiring deal)
  * Gracefully returns [] if scraping fails.
  */
 export function getTeamSalaries(teamId) {
@@ -164,18 +168,27 @@ export function getTeamSalaries(teamId) {
         const result = [];
 
         for (const c of contracts) {
-          const currentEntry = c.seasons?.find((s) => s.season === season);
-          if (!currentEntry) continue;
+          const validSeasons = (c.seasons ?? []).filter(
+            (s) => typeof s.salary === "number"
+          );
+          if (!validSeasons.length) continue;
+
+          // Prefer current season salary; fall back to most recent
+          const currentEntry = validSeasons.find((s) => s.season === season);
+          const mostRecent = validSeasons.reduce((a, b) =>
+            b.season > a.season ? b : a
+          );
+          const salaryEntry = currentEntry ?? mostRecent;
 
           // Sum all season salaries from the current season onward
-          const totalRemaining = c.seasons
-            .filter((s) => s.season >= season && typeof s.salary === "number")
+          const totalRemaining = validSeasons
+            .filter((s) => s.season >= season)
             .reduce((sum, s) => sum + s.salary, 0);
 
           result.push({
             playerName: c.playerName,
-            currentSalary: currentEntry.salary,
-            totalRemaining,
+            currentSalary: salaryEntry.salary,
+            totalRemaining: totalRemaining || salaryEntry.salary,
           });
         }
         return result;
@@ -235,7 +248,7 @@ export async function getPlayersWithSalaries(teamId) {
 
   for (const p of allPlayers) {
     const key = normalizeName(`${p.first_name} ${p.last_name}`);
-    if (salaryMap.has(key)) {
+    if (salaryMap.has(key) && !matched.has(key)) {
       const sal = salaryMap.get(key);
       roster.push({ ...p, salary: sal.currentSalary, totalRemaining: sal.totalRemaining });
       matched.add(key);

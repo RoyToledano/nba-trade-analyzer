@@ -94,6 +94,7 @@ app.post("/api/analyze", async (req, res) => {
 
     // 2. Build the prompt
     const prompt = buildTradePrompt(enrichedTrade);
+    console.log("Generated prompt for Claude:", prompt);
 
     // 3. Forward to Claude wrapper
     sseEvent(res, "status", { message: "Analyzing trade with Claude Code..." });

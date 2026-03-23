@@ -25,7 +25,12 @@
       "Bash(node:*)",
       "Bash(npm create:*)",
       "Bash(npm run:*)",
-      "WebFetch(domain:fanspo.com)"
+      "WebFetch(domain:fanspo.com)",
+      "WebSearch",
+      "Bash(claude -p 'What tools do you have available? Just list the tool names.' --output-format json)",
+      "Bash(claude -p 'Use the WebSearch tool to find who is the current head coach of the Portland Trail Blazers. Return ONLY the coach name.' --allowedTools WebSearch --output-format json)",
+      "Bash(claude -p 'Use WebSearch to find the current head coach of the New York Knicks \\(2025-26 season\\). Return ONLY the coach name, nothing else.' --allowedTools WebSearch ToolSearch --output-format json)",
+      "Bash(claude -p 'Use the WebSearch tool to find who coaches the Portland Trail Blazers right now. Return ONLY the name.' --allowedTools WebSearch ToolSearch --permission-mode auto --output-format json)"
     ]
   }
 }

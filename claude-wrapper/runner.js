@@ -17,7 +17,7 @@ export function runClaude(prompt, { onChunk, onDone, onError }, options = {}) {
 
   try {
     const model = options.model || process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
-    proc = spawn("claude", ["-p", prompt, "--model", model, "--output-format", "stream-json", "--verbose"], {
+    proc = spawn("claude", ["-p", prompt, "--model", model, "--output-format", "stream-json", "--verbose", "--allowedTools", "WebSearch", "ToolSearch", "--permission-mode", "auto"], {
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (err) {

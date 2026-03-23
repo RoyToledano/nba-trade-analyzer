@@ -13,7 +13,7 @@ if (!API_KEY) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function bdlHeaders() {
+export function bdlHeaders() {
   return { Authorization: API_KEY };
 }
 
@@ -78,7 +78,7 @@ async function getAllPlayersForTeam(teamId) {
 // ── HoopsHype Salaries ───────────────────────────────────────────────────────
 
 // Maps balldontlie team full_name → HoopsHype URL slug (underscore format)
-const TEAM_SLUG = {
+export const TEAM_SLUG = {
   1: "atlanta_hawks",
   2: "boston_celtics",
   3: "brooklyn_nets",
@@ -112,7 +112,7 @@ const TEAM_SLUG = {
 };
 
 /** HoopsHype uses season end year: 2025-26 season → 2026 */
-function hoopsHypeSeason() {
+export function hoopsHypeSeason() {
   const now = new Date();
   return now.getMonth() >= 9 ? now.getFullYear() + 1 : now.getFullYear();
 }
@@ -208,7 +208,7 @@ export function getTeamSalaries(teamId) {
 // ── Name Matching ────────────────────────────────────────────────────────────
 
 /** Lowercase, strip accents/non-alpha, collapse spaces. */
-function normalizeName(raw) {
+export function normalizeName(raw) {
   return raw
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")

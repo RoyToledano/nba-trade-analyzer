@@ -2,36 +2,29 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(claude -p 'say hi' --output-format stream-json --verbose)",
-      "Bash(claude -p 'say hi' --output-format stream-json)",
-      "Bash(python3 -c \":*)",
+      "Bash(npm create:*)",
+      "Bash(npm run:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
       "WebFetch(domain:docs.balldontlie.io)",
       "WebFetch(domain:www.balldontlie.io)",
       "WebFetch(domain:hoopshype.com)",
-      "Bash(source /Users/Roy.Toledano/Library/CloudStorage/OneDrive-Fairtility/Documents/personal-projects/nba-trade-analyzer/server/.env)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.balldontlie.io/v1/players/active?team_ids[]=25&per_page=5\" -H \"Authorization: $BALLDONTLIE_API_KEY\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=5\" -H \"Authorization: $BALLDONTLIE_API_KEY\")",
-      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=5\" -H 'Authorization: $BALLDONTLIE_API_KEY')",
-      "Bash(python3 -m json.tool)",
-      "Bash(echo KEY=[$BALLDONTLIE_API_KEY])",
-      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=5\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
-      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=100\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f''''count={len\\(d[\"\"data\"\"]\\)} next_cursor={d[\"\"meta\"\"].get\\(\"\"next_cursor\"\"\\)}''''\\)\")",
-      "Bash(curl -s \"https://api.balldontlie.io/v1/players?team_ids[]=25&per_page=100&cursor=2965\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
-      "Bash(curl -s \"https://api.balldontlie.io/v1/season_averages?season=2025&player_ids[]=666786\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
-      "Bash(curl -s \"https://api.balldontlie.io/v1/stats?seasons[]=2024&player_ids[]=666786&per_page=5\" -H \"Authorization: 5157efac-9d1d-4f44-8169-2e65ffc20e82\")",
-      "Bash(curl -s \"https://hoopshype.com/salaries/portland-trail-blazers/\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl:*)",
-      "Bash(node:*)",
-      "Bash(npm create:*)",
-      "Bash(npm run:*)",
       "WebFetch(domain:fanspo.com)",
-      "WebSearch",
-      "Bash(claude -p 'What tools do you have available? Just list the tool names.' --output-format json)",
-      "Bash(claude -p 'Use the WebSearch tool to find who is the current head coach of the Portland Trail Blazers. Return ONLY the coach name.' --allowedTools WebSearch --output-format json)",
-      "Bash(claude -p 'Use WebSearch to find the current head coach of the New York Knicks \\(2025-26 season\\). Return ONLY the coach name, nothing else.' --allowedTools WebSearch ToolSearch --output-format json)",
-      "Bash(claude -p 'Use the WebSearch tool to find who coaches the Portland Trail Blazers right now. Return ONLY the name.' --allowedTools WebSearch ToolSearch --permission-mode auto --output-format json)",
-      "Bash(find /Users/Roy.Toledano/Library/CloudStorage/OneDrive-Fairtility/Documents/personal-projects/nba-trade-analyzer/client -not -path */node_modules/* -not -path */dist/* -type d)"
+      "WebSearch"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); fp=d.get('tool_input',{}).get('file_path',''); print('Invoke the code-reviewer agent on: '+(fp or 'the modified files'))\""
+          }
+        ]
+      }
     ]
   }
 }

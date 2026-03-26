@@ -11,9 +11,8 @@ This project has technical reference files that MUST be read before working in t
 These files document architecture, key assumptions, external integrations, and edge cases. Do not skip them.
 
 ## Workflow Rules
-After every file write or code modification, automatically invoke the
-code-reviewer agent on the exact files that were just written or modified.
-Do not review the entire codebase — only pass the changed files to the agent.
+
+A `PostToolUse` hook fires automatically after every `Write`, `Edit`, or `MultiEdit` and prompts invocation of the `code-reviewer` agent. When the hook fires, invoke the agent on the exact files that were just modified — not the entire codebase.
 
 Examples:
 - Wrote `src/api/users.ts` → review `src/api/users.ts`

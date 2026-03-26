@@ -6,12 +6,11 @@ Technical reference for any agent or developer working inside this service.
 
 ## 1. Service Overview
 
-**What it does:** NBA-aware HTTP server that bridges the React frontend with two external data sources (balldontlie API and HoopsHype) and the Claude CLI Wrapper service. It owns all NBA data fetching, active-roster resolution, salary enrichment, and prompt construction.
+**What it does:** NBA-aware HTTP server that bridges the React frontend with two external data sources (balldontlie API and HoopsHype) and the Claude CLI Wrapper service. It owns all NBA data fetching, active-roster resolution, salary enrichment, prompt construction, and persisting team/player data to MongoDB. A sync endpoint (`POST /api/sync`) populates the DB on demand.
 
 **What it does NOT do:**
 - It does not invoke Claude directly — it delegates to the Claude Wrapper (`claude-wrapper/`) via HTTP.
 - It does not serve the frontend static files — the React app runs on its own Vite dev server.
-- It does not persist any data — no database, no session state.
 - It does not authenticate callers.
 
 ---
@@ -23,15 +22,21 @@ server/
 ├── index.js       — Express server; defines all routes and SSE relay logic
 ├── nba.js         — All external data fetching: balldontlie API + HoopsHype scraping
 ├── prompt.js      — Builds the structured Claude prompt from trade data
-└── package.json   — ES Modules; dependencies: express, cors
+├── db.js          — Mongoose connection; exports `connectDB()`
+├── models.js      — Mongoose Team/Player schema; exports `Team` model
+├── repository.js  — DB query layer; exports `getAllTeams`, `getPlayersByTeamId`, `upsertTeamWithPlayers`
+├── sync.js        — Full sync handler; exports `handleSync`; owns `RateLimitedQueue`
+└── package.json   — ES Modules; dependencies: express, cors, mongoose
 ```
 
 ### `index.js` — Routes & SSE relay
 
 - Starts Express on the configured port with `cors()` and `express.json()` middleware.
-- Defines three routes (see §5).
+- Calls `connectDB()` at startup — process exits if MongoDB is unreachable.
+- Defines four routes (see §5).
 - For `POST /api/analyze`: orchestrates the full pipeline — stats fetch → prompt build → wrapper call → SSE relay.
-- Contains `parseSSE(block)` — a private helper that parses one SSE message block (text between `\n\n` separators) into `{ type, data }`. Falls back to `{ text: rawString }` if `data:` line is not valid JSON.
+- For `POST /api/sync`: delegates to `handleSync()` from `sync.js`.
+- Contains `parseSSE(block)` — a private helper that parses one SSE message block (text between `\n\n` separators) into `{ type, data }`. Returns `null` if there are no `data:` lines. Falls back to `{ type, data: { text: rawString } }` if the `data:` value is not valid JSON.
 - Manages a `finished` boolean + `finish()` guard on the SSE response to prevent double `res.end()`. Uses `res.on("close")` to detect client disconnect.
 
 ### `nba.js` — Data fetching & roster resolution
@@ -44,14 +49,16 @@ All functions that touch external services live here. Key exports:
 | `getTeamSalaries(teamId)` | Scrapes current-season salary data from HoopsHype |
 | `getPlayersWithSalaries(teamId)` | Combines the above two to return the active roster with salary attached |
 | `getSeasonAverages(playerIds)` | **Currently a stub** — always returns an empty `Map` (see §8) |
+| `bdlHeaders()` | Returns the `Authorization` header object for balldontlie — used by `sync.js` |
+| `TEAM_SLUG` | Object mapping balldontlie team IDs (1–30) to HoopsHype URL slugs — used by `sync.js` |
+| `hoopsHypeSeason()` | Returns the HoopsHype season year (`getMonth() >= 9` (October, zero-indexed) → `currentYear + 1`, else `currentYear`) |
+| `normalizeName(raw)` | Strips accents, lowercases, removes non-alpha characters — used for cross-source name matching in `sync.js` |
 
 Private functions (not exported):
 
 | Function | Description |
 |----------|-------------|
 | `getAllPlayersForTeam(teamId)` | Paginates the balldontlie `/players` endpoint until `next_cursor` is null |
-| `normalizeName(raw)` | Strips accents, lowercases, removes non-alpha characters — used for cross-source name matching |
-| `hoopsHypeSeason()` | Returns the HoopsHype season year (end year: 2025-26 → `2026`). Logic: month ≥ October → `currentYear + 1`, else `currentYear` |
 | `bdlFetch(path)` | Wraps `fetch` for balldontlie with the auth header; throws on non-2xx |
 | `cached(key, ttlMs, fetcher)` | In-memory TTL cache backed by a `Map`; returns cached data if not expired |
 
@@ -67,8 +74,9 @@ Private functions (not exported):
 Single export: `buildTradePrompt(trade)`.
 
 - Accepts `{ teamA, teamB }` where each has `{ name, sending: [{ first_name, last_name, salary, stats }] }`.
-- Formats each player as: `Name | Salary: $X,XXX,XXX | X.X PPG / X.X RPG / X.X APG / X.X MPG`
-- If `salary` is `null` → renders `"N/A"`.
+- Formats each player as: `Name | This Season: $X,XXX,XXX | Total Remaining: $X,XXX,XXX | X.X PPG / X.X RPG / X.X APG / X.X MPG`
+- If `salary` is `null` → renders `"N/A"` for `This Season`.
+- If `totalRemaining` is `null` → renders `"N/A"` for `Total Remaining`.
 - If `stats` is `null` → renders `"Stats N/A"` (stats are always null on the free balldontlie tier).
 - Returns a complete prompt string instructing Claude to respond with exactly six markdown section headers.
 
@@ -81,12 +89,14 @@ Single export: `buildTradePrompt(trade)`.
 | `PORT` | `3001` | TCP port the Express server listens on |
 | `CLAUDE_WRAPPER_URL` | `http://localhost:3002` | Base URL of the Claude CLI Wrapper service |
 | `BALLDONTLIE_API_KEY` | `""` (warns if missing) | API key sent as `Authorization` header to balldontlie |
+| `MONGODB_URI` | *(required)* | MongoDB connection string; server crashes on startup if not set |
 
 **Env file loading:** The `package.json` scripts use `node --env-file=.env`, so a `.env` file in `server/` is automatically loaded at startup. No `dotenv` package is used.
 
 ```
 # server/.env
 BALLDONTLIE_API_KEY=your_key_here
+MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/
 ```
 
 ---
@@ -147,14 +157,35 @@ Returns the active roster for a team with salary data.
   "first_name": "Jrue",
   "last_name": "Holiday",
   "position": "G",
-  "height": "6-4",
-  "weight": "205",
-  "jersey_number": "12",
-  "team": { "id": 25, "full_name": "Portland Trail Blazers", ... },
-  "salary": 34800000
+  "salary": 34800000,
+  "totalRemaining": 69600000
 }
 ```
-`salary` is `null` if no HoopsHype match was found. `id` is `null` for players found on HoopsHype but not in the balldontlie database.
+`salary` is `null` if no HoopsHype match was found. `totalRemaining` is the total remaining contract value from HoopsHype (`null` if unavailable). `id` is `null` for players found on HoopsHype but not in the balldontlie database. Note: `height`, `weight`, `jersey_number`, and `team` fields are no longer returned — the DB schema stores only the fields above.
+
+### `POST /api/sync`
+
+Triggers a full data sync: fetches all 30 teams and their rosters from balldontlie + HoopsHype, then upserts to MongoDB. Response is an SSE stream.
+
+**Request body:** none required
+
+**Guard:** Returns `HTTP 409` if a sync is already in progress (module-level `isSyncing` flag).
+
+**SSE events emitted:**
+
+| Event | Payload | When |
+|-------|---------|------|
+| `started` | `{ "message": "Fetching teams list..." }` | Sync begins |
+| `progress` | `{ "message": "Found N teams", "total": N }` | After teams fetch |
+| `team_started` | `{ "team", "index", "total" }` | Before each team |
+| `team_done` | `{ "team", "players", "index", "total" }` | After each team upsert |
+| `team_error` | `{ "team", "error" }` | If a single team fails (sync continues) |
+| `done` | `{ "message", "synced", "errors", "syncedAt" }` | All teams processed |
+| `error` | `{ "message" }` | Fatal failure before completion |
+
+**Rate limiting:** Uses `RateLimitedQueue` (5 req/min). Backs off exponentially on 429s (base 12s, up to 3 retries). HoopsHype scraping runs in parallel with the queued balldontlie call per team.
+
+---
 
 ### `POST /api/analyze`
 
@@ -233,6 +264,7 @@ The frontend (React app on `:3000`) calls this server's three endpoints over pla
 
 ## 8. Key Assumptions & Constraints
 
+- **MongoDB is the source of truth for team and player data.** `GET /api/teams` and `GET /api/teams/:id/players` read from MongoDB via `repository.js`. The DB must be populated first via `POST /api/sync`. If the DB is empty, both endpoints return empty arrays.
 - **balldontlie free tier:** Only `/teams` and `/players` (all-time, with cursor pagination) are accessible. `/players/active`, `/stats`, and `/season_averages` all return 401. `getSeasonAverages` is a stub returning an empty Map and must remain so until a paid plan is used.
 - **HoopsHype is scraped, not an official API.** The parsing relies on the `__NEXT_DATA__` JSON structure of their Next.js frontend. If their page structure changes, `getTeamSalaries` silently returns `[]`. There is no alerting.
 - **balldontlie team IDs 1–30 = current NBA teams.** IDs above 30 are defunct historical franchises and are filtered out in `getTeams()`. Do not change this filter without verifying the ID range is still accurate.
@@ -242,3 +274,5 @@ The frontend (React app on `:3000`) calls this server's three endpoints over pla
 - **The `cors()` middleware allows all origins.** This is intentional for local development only — do not deploy publicly without restricting origins.
 - **The prompt sends no model override to the wrapper.** The wrapper will use its default model (`claude-sonnet-4-6` unless overridden by its own `CLAUDE_MODEL` env var).
 - **`parseSSE` defaults `type` to `"message"` if no `event:` line is present.** The current code only acts on `chunk`, `done`, and `error` types — an unrecognized type is silently skipped.
+- **`RateLimitedQueue` is sequential and single-process.** The queue is instantiated per sync run; it does not persist across requests. `isSyncing` is a module-level boolean — if the process crashes mid-sync, it resets on restart.
+- **Sync bypasses nothing in the in-memory salary cache.** `getTeamSalaries` is called through the shared 30-minute TTL cache in `nba.js`. Restart the server to force a fresh HoopsHype scrape on the next sync.

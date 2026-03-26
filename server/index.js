@@ -5,8 +5,11 @@
 
 import express from "express";
 import cors from "cors";
-import { getTeams, getPlayersWithSalaries, getSeasonAverages } from "./nba.js";
+import { getSeasonAverages } from "./nba.js";
 import { buildTradePrompt } from "./prompt.js";
+import { connectDB } from "./db.js";
+import { getAllTeams, getPlayersByTeamId } from "./repository.js";
+import { handleSync } from "./sync.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -27,7 +30,7 @@ function sseEvent(res, event, data) {
 // GET /api/teams — all 30 NBA teams
 app.get("/api/teams", async (_req, res) => {
   try {
-    const teams = await getTeams();
+    const teams = await getAllTeams();
     res.json({ data: teams });
   } catch (err) {
     console.error("GET /api/teams error:", err.message);
@@ -38,13 +41,16 @@ app.get("/api/teams", async (_req, res) => {
 // GET /api/teams/:id/players — active roster with salaries
 app.get("/api/teams/:id/players", async (req, res) => {
   try {
-    const players = await getPlayersWithSalaries(Number(req.params.id));
+    const players = await getPlayersByTeamId(Number(req.params.id));
     res.json({ data: players });
   } catch (err) {
     console.error(`GET /api/teams/${req.params.id}/players error:`, err.message);
     res.status(502).json({ error: err.message });
   }
 });
+
+// POST /api/sync — sync all teams from balldontlie + HoopsHype into MongoDB
+app.post("/api/sync", handleSync);
 
 // POST /api/analyze — build prompt, call Claude wrapper, relay SSE stream
 app.post("/api/analyze", async (req, res) => {
@@ -94,7 +100,6 @@ app.post("/api/analyze", async (req, res) => {
 
     // 2. Build the prompt
     const prompt = buildTradePrompt(enrichedTrade);
-    console.log("Generated prompt for Claude:", prompt);
 
     // 3. Forward to Claude wrapper
     sseEvent(res, "status", { message: "Analyzing trade with Claude Code..." });
@@ -189,6 +194,13 @@ function parseSSE(block) {
 
 // ── Start ────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`nba-trade-analyzer server listening on http://localhost:${PORT}`);
-});
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`nba-trade-analyzer server listening on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err.message);
+    process.exit(1);
+  });

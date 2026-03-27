@@ -92,10 +92,7 @@ async function fetchAllPlayersForTeam(queue, teamId) {
 function crossReference(allPlayers, salaryEntries) {
   const salaryMap = new Map();
   for (const entry of salaryEntries) {
-    salaryMap.set(normalizeName(entry.playerName), {
-      currentSalary: entry.currentSalary,
-      totalRemaining: entry.totalRemaining,
-    });
+    salaryMap.set(normalizeName(entry.playerName), entry);
   }
 
   const roster = [];
@@ -112,6 +109,9 @@ function crossReference(allPlayers, salaryEntries) {
         position: p.position ?? "",
         salary: sal.currentSalary,
         totalRemaining: sal.totalRemaining,
+        yearsRemaining: sal.yearsRemaining ?? null,
+        isExpiring: sal.isExpiring ?? false,
+        contractYears: sal.contractYears ?? [],
       });
       matched.add(key);
     }
@@ -129,6 +129,9 @@ function crossReference(allPlayers, salaryEntries) {
         position: "",
         salary: entry.currentSalary,
         totalRemaining: entry.totalRemaining,
+        yearsRemaining: entry.yearsRemaining ?? null,
+        isExpiring: entry.isExpiring ?? false,
+        contractYears: entry.contractYears ?? [],
       });
     }
   }

@@ -12,6 +12,20 @@ const playerSchema = new mongoose.Schema(
     position: { type: String, default: "" },
     salary: { type: Number, default: null },
     totalRemaining: { type: Number, default: null },
+    // Contract details (populated from HoopsHype seasons data)
+    yearsRemaining: { type: Number, default: null },
+    isExpiring: { type: Boolean, default: false },
+    contractYears: {
+      type: [{ season: Number, salary: Number }],
+      default: [],
+    },
+    // Trade eligibility
+    tradeStatus: {
+      type: String,
+      enum: ["tradeable", "trade-candidate", "not-tradable"],
+      default: "tradeable",
+    },
+    tradeRestrictionNote: { type: String, default: "" },
   },
   { _id: false }
 );

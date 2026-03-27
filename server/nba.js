@@ -185,10 +185,27 @@ export function getTeamSalaries(teamId) {
             .filter((s) => s.season >= season)
             .reduce((sum, s) => sum + s.salary, 0);
 
+          // Build future contract years array
+          const futureSeasons = validSeasons
+            .filter((s) => s.season >= season)
+            .sort((a, b) => a.season - b.season)
+            .map((s) => ({ season: s.season, salary: s.salary }));
+
+          const yearsRemaining = futureSeasons.length;
+          // Use explicit length check — totalRemaining can be 0 (a falsy number)
+          // for players with no future seasons, which is different from "no data".
+          const resolvedTotalRemaining =
+            futureSeasons.length > 0 ? totalRemaining : salaryEntry.salary;
+
           result.push({
             playerName: c.playerName,
             currentSalary: salaryEntry.salary,
-            totalRemaining: totalRemaining || salaryEntry.salary,
+            totalRemaining: resolvedTotalRemaining,
+            yearsRemaining,
+            // Exactly 1 remaining year = expiring. 0 means no future data
+            // (player is effectively off-books), not an expiring contract.
+            isExpiring: yearsRemaining === 1,
+            contractYears: futureSeasons,
           });
         }
         return result;
@@ -233,13 +250,10 @@ export async function getPlayersWithSalaries(teamId) {
     getTeamSalaries(teamId),
   ]);
 
-  // Build a lookup: normalizedName → { currentSalary, totalRemaining }
+  // Build a lookup: normalizedName → salary entry (full contract details)
   const salaryMap = new Map();
   for (const entry of salaryEntries) {
-    salaryMap.set(normalizeName(entry.playerName), {
-      currentSalary: entry.currentSalary,
-      totalRemaining: entry.totalRemaining,
-    });
+    salaryMap.set(normalizeName(entry.playerName), entry);
   }
 
   // Match balldontlie players to HoopsHype salaries
@@ -250,7 +264,14 @@ export async function getPlayersWithSalaries(teamId) {
     const key = normalizeName(`${p.first_name} ${p.last_name}`);
     if (salaryMap.has(key) && !matched.has(key)) {
       const sal = salaryMap.get(key);
-      roster.push({ ...p, salary: sal.currentSalary, totalRemaining: sal.totalRemaining });
+      roster.push({
+        ...p,
+        salary: sal.currentSalary,
+        totalRemaining: sal.totalRemaining,
+        yearsRemaining: sal.yearsRemaining ?? null,
+        isExpiring: sal.isExpiring ?? false,
+        contractYears: sal.contractYears ?? [],
+      });
       matched.add(key);
     }
   }
@@ -268,6 +289,9 @@ export async function getPlayersWithSalaries(teamId) {
         position: "",
         salary: entry.currentSalary,
         totalRemaining: entry.totalRemaining,
+        yearsRemaining: entry.yearsRemaining ?? null,
+        isExpiring: entry.isExpiring ?? false,
+        contractYears: entry.contractYears ?? [],
       });
     }
   }

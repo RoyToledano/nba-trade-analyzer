@@ -18,13 +18,21 @@ export async function getAllTeams() {
 
 /**
  * Returns the player roster for a team, shaped for the frontend:
- * [{ id, first_name, last_name, position, salary, totalRemaining }]
+ * [{ id, first_name, last_name, position, salary, totalRemaining,
+ *    yearsRemaining, isExpiring, contractYears, tradeStatus, tradeRestrictionNote }]
  */
 export async function getPlayersByTeamId(teamId) {
   const team = await Team.findOne({ bdl_id: teamId }, { players: 1 }).lean();
   if (!team) return [];
 
   return team.players.map(({ bdl_id, ...rest }) => ({ id: bdl_id, ...rest }));
+}
+
+/**
+ * Returns the raw team document (with players) for cap calculation.
+ */
+export async function getTeamWithPlayers(teamId) {
+  return Team.findOne({ bdl_id: teamId }).lean();
 }
 
 /**

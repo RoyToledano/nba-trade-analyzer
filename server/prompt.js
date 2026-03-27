@@ -12,13 +12,15 @@ const fmt = new Intl.NumberFormat("en-US", {
  * @param {object} trade
  * @param {object} trade.teamA  — { name, sending: [{ first_name, last_name, salary, stats }] }
  * @param {object} trade.teamB  — same shape
+ * @param {object|null} legality — output from evaluateTradeLegality (optional)
  * @returns {string} The full prompt to send to Claude
  */
-export function buildTradePrompt(trade) {
+export function buildTradePrompt(trade, legality = null) {
   const { teamA, teamB } = trade;
 
   const blockA = formatTeamBlock(teamA);
   const blockB = formatTeamBlock(teamB);
+  const legalityBlock = legality ? formatLegalityBlock(legality) : "";
 
   return `You are a sharp, opinionated NBA analyst who evaluates trades with depth and nuance. You consider on-court fit, salary cap strategy, player development timelines, and team-building philosophy.
 
@@ -36,7 +38,7 @@ ${blockA}
 ${blockB}
 
 Since this is a two-team trade, each team receives the players the other team is sending.
-
+${legalityBlock}
 Analyze this trade thoroughly. Use the stats and salary data provided. Respond using **exactly** these markdown section headers:
 
 ## Short-Term Winner
@@ -46,7 +48,7 @@ Immediate impact over the next 1–2 seasons. Which team benefits more right now
 3+ season outlook. Consider contracts, player age, development trajectory, and draft capital implications.
 
 ## Salary & Cap Implications
-Cap hits for each side, luxury tax risk, future cap flexibility. Note any salary matching issues if applicable.
+Use the financial data provided above as the authoritative source for cap numbers. Discuss: cap hits for each side, luxury tax risk, apron implications, and future cap flexibility. If the trade fails salary matching rules, explain why and what adjustments could make it work.
 
 ## Fit Analysis: ${teamA.name}
 How do the incoming players fit ${teamA.name}'s roster, playing style, and coaching system?
@@ -80,4 +82,36 @@ function formatTeamBlock(team) {
 
 function num(v) {
   return v != null ? Number(v).toFixed(1) : "—";
+}
+
+function formatLegalityBlock(legality) {
+  const formatSide = (side) => {
+    const f = side.tradeFinancials;
+    const pre = side.preTrade;
+    const post = side.postTrade;
+    const capDiffStr = side.valid
+      ? `under allowable by ${fmt.format(f.capDifference)} (PASS)`
+      : `over allowable by ${fmt.format(f.incomingCap - f.allowableIncoming)} (FAIL)`;
+    return `  **${side.teamName}** (currently ${pre.capStatusLabel}):
+    - Outgoing salary: ${fmt.format(f.outgoingCap)}
+    - Allowable incoming: ${fmt.format(f.allowableIncoming)} (formula: ${f.formula})
+    - Incoming salary: ${fmt.format(f.incomingCap)}
+    - Cap difference: ${capDiffStr}
+    - Post-trade status: ${post.capStatusLabel} (total salary: ${fmt.format(post.totalSalary)})
+    - Post-trade tax space: ${fmt.format(post.taxSpace)}
+    - Post-trade 1st apron space: ${fmt.format(post.firstApronSpace)}
+    - Post-trade 2nd apron space: ${fmt.format(post.secondApronSpace)}`;
+  };
+
+  const warnings = legality.warnings.length
+    ? `\n  Warnings: ${legality.warnings.join("; ")}`
+    : "";
+
+  return `
+
+**CBA Financial Analysis (computed, authoritative):**
+  Trade legality: ${legality.valid ? "VALID" : "INVALID"}
+${formatSide(legality.teamA)}
+${formatSide(legality.teamB)}${warnings}
+`;
 }

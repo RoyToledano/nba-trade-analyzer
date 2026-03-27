@@ -5,11 +5,13 @@
 
 import express from "express";
 import cors from "cors";
-import { getSeasonAverages } from "./nba.js";
+import { getSeasonAverages, hoopsHypeSeason } from "./nba.js";
 import { buildTradePrompt } from "./prompt.js";
 import { connectDB } from "./db.js";
-import { getAllTeams, getPlayersByTeamId } from "./repository.js";
+import { getAllTeams, getPlayersByTeamId, getTeamWithPlayers } from "./repository.js";
 import { handleSync } from "./sync.js";
+import { computeCapPosition, capStatusLabel } from "./capCalculator.js";
+import { evaluateTradeLegality } from "./tradeLegality.js";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -49,8 +51,56 @@ app.get("/api/teams/:id/players", async (req, res) => {
   }
 });
 
+// GET /api/teams/:id/cap — cap position for a team
+app.get("/api/teams/:id/cap", async (req, res) => {
+  try {
+    const team = await getTeamWithPlayers(Number(req.params.id));
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    const seasonYear = hoopsHypeSeason();
+    const capPosition = computeCapPosition(team.players, seasonYear);
+
+    res.json({
+      data: {
+        teamId: team.bdl_id,
+        teamName: team.full_name,
+        season: seasonYear,
+        ...capPosition,
+        capStatusLabel: capStatusLabel(capPosition.capStatus),
+      },
+    });
+  } catch (err) {
+    console.error(`GET /api/teams/${req.params.id}/cap error:`, err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // POST /api/sync — sync all teams from balldontlie + HoopsHype into MongoDB
 app.post("/api/sync", handleSync);
+
+// POST /api/trade/evaluate — evaluate trade legality without AI analysis
+app.post("/api/trade/evaluate", async (req, res) => {
+  const { teamA, teamB } = req.body ?? {};
+
+  if (!teamA?.sending?.length || !teamB?.sending?.length) {
+    return res
+      .status(400)
+      .json({ error: "Both teamA and teamB must include a non-empty sending array." });
+  }
+
+  try {
+    const legality = await evaluateTradeLegality({ teamA, teamB });
+    res.json({ data: legality });
+  } catch (err) {
+    console.error("POST /api/trade/evaluate error:", err.message);
+    if (err.code === "TEAM_NOT_FOUND") {
+      return res.status(404).json({ error: err.message });
+    }
+    res.status(502).json({ error: err.message });
+  }
+});
 
 // POST /api/analyze — build prompt, call Claude wrapper, relay SSE stream
 app.post("/api/analyze", async (req, res) => {
@@ -80,6 +130,18 @@ app.post("/api/analyze", async (req, res) => {
   });
 
   try {
+    // 0. Evaluate trade legality (CBA salary matching)
+    sseEvent(res, "status", { message: "Evaluating trade legality..." });
+    let legality = null;
+    try {
+      legality = await evaluateTradeLegality({ teamA, teamB });
+      sseEvent(res, "legality", legality);
+    } catch (err) {
+      // Non-fatal: legality check failure shouldn't block AI analysis
+      console.warn("Trade legality evaluation failed:", err.message);
+      sseEvent(res, "legality_error", { message: err.message });
+    }
+
     // 1. Fetch season averages for all traded players
     sseEvent(res, "status", { message: "Fetching player stats..." });
 
@@ -98,8 +160,8 @@ app.post("/api/analyze", async (req, res) => {
       teamB: { ...teamB, sending: teamB.sending.map(enrich) },
     };
 
-    // 2. Build the prompt
-    const prompt = buildTradePrompt(enrichedTrade);
+    // 2. Build the prompt (include legality data if available)
+    const prompt = buildTradePrompt(enrichedTrade, legality);
 
     // 3. Forward to Claude wrapper
     sseEvent(res, "status", { message: "Analyzing trade with Claude Code..." });

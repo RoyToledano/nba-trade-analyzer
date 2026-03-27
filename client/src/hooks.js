@@ -35,19 +35,56 @@ export function usePlayers(teamId) {
       return;
     }
 
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
     setPlayers([]);
 
-    fetch(`/api/teams/${teamId}/players`)
+    fetch(`/api/teams/${teamId}/players`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error(`Failed to load roster (${r.status})`);
         return r.json();
       })
       .then((json) => setPlayers(json.data))
-      .catch((err) => setError(err.message))
+      .catch((err) => { if (err.name !== "AbortError") setError(err.message); })
       .finally(() => setLoading(false));
+
+    return () => controller.abort();
   }, [teamId]);
 
   return { players, loading, error };
+}
+
+export function useCapPosition(teamId) {
+  const [capPosition, setCapPosition] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!teamId) {
+      setCapPosition(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    setCapPosition(null);
+    setError(null);
+
+    fetch(`/api/teams/${teamId}/cap`, { signal: controller.signal })
+      .then((r) => {
+        // 404 = endpoint not yet live or team not synced; fail silently
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then((json) => setCapPosition(json?.data ?? null))
+      .catch((err) => {
+        if (err.name !== "AbortError") { setCapPosition(null); setError(err.message); }
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [teamId]);
+
+  return { capPosition, loading, error };
 }

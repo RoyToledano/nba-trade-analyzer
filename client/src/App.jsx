@@ -29,6 +29,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [legalityData, setLegalityData] = useState(null);
 
   function handleTeamChange(side, selected) {
     const updater = selected
@@ -57,6 +58,7 @@ export default function App() {
     setErrorMsg("");
     setIsStreaming(true);
     setIsDone(false);
+    setLegalityData(null);
 
     try {
       const res = await fetch("/api/analyze", {
@@ -70,39 +72,46 @@ export default function App() {
         throw new Error(json.error ?? `Server error ${res.status}`);
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      let reader;
+      try {
+        reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop();
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop();
 
-        for (const part of parts) {
-          const event = parseSSEBlock(part);
-          if (!event) continue;
+          for (const part of parts) {
+            const event = parseSSEBlock(part);
+            if (!event) continue;
 
-          if (event.type === "status") {
-            setStatusMsg(event.data.message ?? "");
-          } else if (event.type === "chunk") {
-            setStatusMsg("");
-            setAnalysisText((prev) => prev + (event.data.text ?? ""));
-          } else if (event.type === "done") {
-            setIsStreaming(false);
-            setIsDone(true);
-            return;
-          } else if (event.type === "error") {
-            throw new Error(event.data.message ?? "Unknown error");
+            if (event.type === "legality") {
+              setLegalityData(event.data);
+            } else if (event.type === "status") {
+              setStatusMsg(event.data.message ?? "");
+            } else if (event.type === "chunk") {
+              setStatusMsg("");
+              setAnalysisText((prev) => prev + (event.data.text ?? ""));
+            } else if (event.type === "done") {
+              setIsStreaming(false);
+              setIsDone(true);
+              return;
+            } else if (event.type === "error") {
+              throw new Error(event.data.message ?? "Unknown error");
+            }
           }
         }
-      }
 
-      setIsStreaming(false);
-      setIsDone(true);
+        setIsStreaming(false);
+        setIsDone(true);
+      } finally {
+        reader?.cancel();
+      }
     } catch (err) {
       setErrorMsg(err.message);
       setIsStreaming(false);
@@ -166,6 +175,7 @@ export default function App() {
           error={errorMsg}
           isStreaming={isStreaming}
           isDone={isDone}
+          legality={legalityData}
         />
       </main>
     </div>
@@ -209,7 +219,7 @@ const styles = {
   },
   analyzeBtn: {
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--text-heading)",
     fontFamily: "var(--font-display)",
     fontSize: 15,
     letterSpacing: 2,

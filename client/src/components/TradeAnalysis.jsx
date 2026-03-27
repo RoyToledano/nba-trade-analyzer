@@ -1,17 +1,18 @@
 import ReactMarkdown from "react-markdown";
+import TradeFinancials from "./TradeFinancials.jsx";
 
 const GRADE_COLORS = {
-  "A+": { bg: "#052e16", border: "#16a34a", text: "#4ade80" },
-  "A":  { bg: "#052e16", border: "#16a34a", text: "#4ade80" },
-  "A-": { bg: "#052e16", border: "#16a34a", text: "#4ade80" },
-  "B+": { bg: "#0a2e1f", border: "#22c55e", text: "#86efac" },
-  "B":  { bg: "#0a2e1f", border: "#22c55e", text: "#86efac" },
-  "B-": { bg: "#172554", border: "#3b82f6", text: "#93c5fd" },
-  "C+": { bg: "#1a1a00", border: "#ca8a04", text: "#fde047" },
-  "C":  { bg: "#1a1a00", border: "#ca8a04", text: "#fde047" },
-  "C-": { bg: "#1a1a00", border: "#ca8a04", text: "#fde047" },
-  "D":  { bg: "#2a1215", border: "#dc2626", text: "#fca5a5" },
-  "F":  { bg: "#2a1215", border: "#dc2626", text: "#f87171" },
+  "A+": { bg: "var(--grade-a-bg)",       border: "var(--grade-a-border)",   text: "var(--grade-a-text)" },
+  "A":  { bg: "var(--grade-a-bg)",       border: "var(--grade-a-border)",   text: "var(--grade-a-text)" },
+  "A-": { bg: "var(--grade-a-bg)",       border: "var(--grade-a-border)",   text: "var(--grade-a-text)" },
+  "B+": { bg: "var(--grade-b-bg)",       border: "var(--grade-b-border)",   text: "var(--grade-b-text)" },
+  "B":  { bg: "var(--grade-b-bg)",       border: "var(--grade-b-border)",   text: "var(--grade-b-text)" },
+  "B-": { bg: "var(--grade-b-minus-bg)", border: "var(--blue-border)",      text: "var(--grade-b-minus-text)" },
+  "C+": { bg: "var(--grade-c-bg)",       border: "var(--grade-c-border)",   text: "var(--grade-c-text)" },
+  "C":  { bg: "var(--grade-c-bg)",       border: "var(--grade-c-border)",   text: "var(--grade-c-text)" },
+  "C-": { bg: "var(--grade-c-bg)",       border: "var(--grade-c-border)",   text: "var(--grade-c-text)" },
+  "D":  { bg: "var(--grade-d-bg)",       border: "var(--grade-d-border)",   text: "var(--grade-d-text)" },
+  "F":  { bg: "var(--grade-d-bg)",       border: "var(--grade-d-border)",   text: "var(--grade-f-text)" },
 };
 
 function parseGrades(text) {
@@ -57,10 +58,20 @@ function GradeCard({ team, grade }) {
   );
 }
 
-export default function TradeAnalysis({ text, status, error, isStreaming, isDone }) {
-  if (!status && !text && !error) return null;
+export default function TradeAnalysis({ text, status, error, isStreaming, isDone, legality }) {
+  if (!status && !text && !error && !legality) return null;
 
   const grades = isDone ? parseGrades(text) : [];
+
+  // Derive validity banners from legality data
+  const tradeValid = legality?.valid;
+  const rosterWarnings = legality ? [
+    legality.teamA?.rosterCompliance?.message,
+    legality.teamB?.rosterCompliance?.message,
+  ].filter(Boolean) : [];
+  const salaryWarnings = legality?.warnings?.filter(
+    (w) => w.includes("exceeds allowable")
+  ) ?? [];
 
   return (
     <div style={styles.wrapper}>
@@ -71,6 +82,30 @@ export default function TradeAnalysis({ text, status, error, isStreaming, isDone
         {isDone && <span style={styles.doneBadge}>Analysis complete</span>}
       </div>
 
+      {/* Trade legality banner — shown as soon as legality data arrives */}
+      {legality != null && (
+        <div style={{
+          ...styles.legalityBanner,
+          background: tradeValid ? "var(--green-dim)" : "var(--red-dim)",
+          border: `1px solid ${tradeValid ? "var(--green-border)" : "var(--red-border)"}`,
+          color: tradeValid ? "var(--green)" : "var(--red)",
+        }}>
+          <span style={styles.legalityIcon}>{tradeValid ? "✓" : "✗"}</span>
+          <span>
+            {tradeValid
+              ? "Trade is valid under CBA salary matching rules."
+              : salaryWarnings.length > 0
+                ? salaryWarnings.join(" ")
+                : "Trade does not satisfy CBA salary matching rules."}
+          </span>
+        </div>
+      )}
+
+      {/* Roster compliance warnings */}
+      {rosterWarnings.map((w) => (
+        <div key={w} style={styles.rosterWarning}>{w}</div>
+      ))}
+
       {/* Grade cards */}
       {grades.length > 0 && (
         <div style={styles.gradeRow}>
@@ -79,6 +114,9 @@ export default function TradeAnalysis({ text, status, error, isStreaming, isDone
           ))}
         </div>
       )}
+
+      {/* Financial breakdown — shown when legality data is present */}
+      <TradeFinancials legality={legality} />
 
       {/* Status */}
       {status && !text && (
@@ -148,8 +186,33 @@ const styles = {
     fontWeight: 500,
     color: "var(--green)",
     background: "var(--green-dim)",
+    border: "1px solid var(--green-border)",
     borderRadius: "var(--radius)",
     padding: "3px 10px",
+  },
+  legalityBanner: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: "var(--radius)",
+    padding: "10px 14px",
+    fontSize: 13,
+    marginBottom: 8,
+    fontWeight: 500,
+  },
+  legalityIcon: {
+    fontSize: 15,
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  rosterWarning: {
+    fontSize: 12,
+    color: "var(--blue)",
+    background: "var(--blue-dim)",
+    border: "1px solid var(--blue-border)",
+    borderRadius: "var(--radius)",
+    padding: "7px 12px",
+    marginBottom: 8,
   },
   gradeRow: {
     display: "flex",

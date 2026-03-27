@@ -29,9 +29,38 @@
 
   --green: #22c55e;
   --green-dim: rgba(34, 197, 94, 0.1);
+  --green-border: rgba(34, 197, 94, 0.3);
+
+  --yellow: #eab308;
+  --yellow-dim: rgba(234, 179, 8, 0.1);
+  --yellow-border: rgba(234, 179, 8, 0.3);
+
+  --blue: #3b82f6;
+  --blue-dim: rgba(59, 130, 246, 0.1);
+  --blue-border: rgba(59, 130, 246, 0.3);
+
+  --orange: #f97316;
+  --orange-dim: rgba(249, 115, 22, 0.1);
+  --orange-border: rgba(249, 115, 22, 0.3);
 
   --radius: 4px;
-  --radius-sm: 4px;
+
+  /* Grade tier colors */
+  --grade-a-bg: #052e16;
+  --grade-a-border: #16a34a;
+  --grade-a-text: #4ade80;
+  --grade-b-bg: #0a2e1f;
+  --grade-b-border: #22c55e;
+  --grade-b-text: #86efac;
+  --grade-b-minus-bg: #172554;
+  --grade-b-minus-text: #93c5fd;
+  --grade-c-bg: #1a1a00;
+  --grade-c-border: #ca8a04;
+  --grade-c-text: #fde047;
+  --grade-d-bg: #2a1215;
+  --grade-d-border: #dc2626;
+  --grade-d-text: #fca5a5;
+  --grade-f-text: #f87171;
 }
 
 /* ── Reset & Base ──────────────────────────────────────────────────────────── */

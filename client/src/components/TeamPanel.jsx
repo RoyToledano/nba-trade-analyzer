@@ -1,4 +1,4 @@
-import { useTeams, usePlayers } from "../hooks.js";
+import { useTeams, usePlayers, useCapPosition } from "../hooks.js";
 
 const fmt = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -6,9 +6,23 @@ const fmt = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+// Cap status → display color (matches TradeFinancials.jsx)
+const CAP_STATUS_STYLE = {
+  "under-cap":    { color: "var(--text-muted)" },
+  "over-cap":     { color: "var(--text)" },
+  "taxpayer":     { color: "var(--yellow)" },
+  "first-apron":  { color: "var(--orange)" },
+  "second-apron": { color: "var(--red)" },
+};
+
+function capStatusColor(status) {
+  return CAP_STATUS_STYLE[status]?.color ?? "var(--text-muted)";
+}
+
 export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer }) {
   const { teams, loading: teamsLoading } = useTeams();
   const { players, loading: playersLoading, error: playersError } = usePlayers(team.id);
+  const { capPosition } = useCapPosition(team.id);
 
   function handleTeamSelect(e) {
     const id = Number(e.target.value);
@@ -37,6 +51,18 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
           ))}
         </select>
       </div>
+
+      {/* Cap status banner */}
+      {team.id && capPosition && (
+        <div style={styles.capBanner}>
+          <span style={styles.capBannerText}>
+            This team is currently{" "}
+            <span style={{ color: capStatusColor(capPosition.capStatus), fontWeight: 600 }}>
+              {capPosition.capStatusLabel}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Outgoing zone */}
       {team.id && (
@@ -90,37 +116,64 @@ export default function TeamPanel({ label, team, onTeamChange, onTogglePlayer })
         {!playersLoading && !playersError && team.id && (
           <div style={styles.rosterHeader}>
             <span style={styles.rosterHeaderCell}>PLAYER</span>
-            <span style={{ ...styles.rosterHeaderCell, textAlign: "right" }}>SALARY</span>
+            <span style={{ ...styles.rosterHeaderCell, textAlign: "right" }}>CONTRACT</span>
           </div>
         )}
 
         {!playersLoading && !playersError && players.map((player) => {
           const isOut = sendingIds.has(player.id);
+          const notTradable = player.tradeStatus === "not-tradable";
+          const isCandidate = player.tradeStatus === "trade-candidate";
+
           return (
             <div
-              key={player.id ?? player.first_name + player.last_name}
-              style={{ ...styles.playerRow, ...(isOut ? styles.playerRowOut : {}) }}
-              onClick={() => onTogglePlayer(player)}
+              key={player.id != null ? player.id : player.first_name + player.last_name}
+              style={{
+                ...styles.playerRow,
+                ...(isOut ? styles.playerRowOut : {}),
+                ...(notTradable ? styles.playerRowDisabled : {}),
+              }}
+              onClick={() => { if (!notTradable) onTogglePlayer(player); }}
+              title={notTradable ? (player.tradeRestrictionNote || "Not eligible for trade") : undefined}
             >
               <div style={styles.playerLeft}>
                 <span style={styles.position}>{player.position || "—"}</span>
-                <span style={styles.playerName}>
-                  {player.first_name} {player.last_name}
-                </span>
+                <div style={styles.playerNameBlock}>
+                  <span style={styles.playerName}>
+                    {player.first_name} {player.last_name}
+                  </span>
+                </div>
               </div>
+
               <div style={styles.playerRight}>
+                {/* Salary + contract years */}
                 <div style={styles.salaryBlock}>
                   <span style={styles.salary}>
                     {player.salary != null ? fmt.format(player.salary) : "—"}
                   </span>
+                  {/* Remaining contract indicator */}
+                  {player.yearsRemaining != null && (player.isExpiring || player.yearsRemaining > 1) && (
+                    <span style={{
+                      ...styles.contractNote,
+                      color: player.isExpiring ? "var(--yellow)" : "var(--text-muted)",
+                    }}>
+                      {player.isExpiring ? "Expiring" : `+${player.yearsRemaining - 1} yr`}
+                    </span>
+                  )}
                   {player.totalRemaining != null && player.totalRemaining !== player.salary && (
                     <span style={styles.totalRemaining}>
                       {fmt.format(player.totalRemaining)} total
                     </span>
                   )}
                 </div>
+
+                {/* Trade status badge or toggle button */}
                 {isOut ? (
                   <span style={styles.tradingBadge}>TRADING</span>
+                ) : notTradable ? (
+                  <span style={styles.notTradableBadge}>NO TRADE</span>
+                ) : isCandidate ? (
+                  <span style={styles.candidateBadge}>CANDIDATE</span>
                 ) : (
                   <span style={styles.addBtn}>+</span>
                 )}
@@ -169,6 +222,15 @@ const styles = {
     cursor: "pointer",
     outline: "none",
     transition: "border-color 0.2s",
+  },
+  capBanner: {
+    padding: "7px 16px",
+    borderBottom: "1px solid var(--border-light)",
+    background: "var(--bg-card)",
+  },
+  capBannerText: {
+    fontSize: 11,
+    color: "var(--text-muted)",
   },
   outgoingZone: {
     margin: "12px 16px",
@@ -273,6 +335,10 @@ const styles = {
   playerRowOut: {
     background: "var(--accent-dim)",
   },
+  playerRowDisabled: {
+    cursor: "default",
+    opacity: 0.55,
+  },
   playerLeft: {
     display: "flex",
     alignItems: "center",
@@ -287,6 +353,12 @@ const styles = {
     width: 20,
     textAlign: "center",
     flexShrink: 0,
+  },
+  playerNameBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 1,
+    minWidth: 0,
   },
   playerName: {
     color: "var(--text-heading)",
@@ -313,6 +385,11 @@ const styles = {
     fontSize: 11,
     color: "var(--text)",
   },
+  contractNote: {
+    fontFamily: "var(--font-mono)",
+    fontSize: 9,
+    fontWeight: 600,
+  },
   totalRemaining: {
     fontFamily: "var(--font-mono)",
     fontSize: 9,
@@ -336,6 +413,25 @@ const styles = {
     letterSpacing: 1.5,
     color: "var(--accent)",
     border: "1px solid var(--accent-border)",
+    borderRadius: "var(--radius)",
+    padding: "2px 6px",
+  },
+  candidateBadge: {
+    fontFamily: "var(--font-display)",
+    fontSize: 9,
+    letterSpacing: 1,
+    color: "var(--blue)",
+    background: "var(--blue-dim)",
+    border: "1px solid var(--blue-border)",
+    borderRadius: "var(--radius)",
+    padding: "2px 6px",
+  },
+  notTradableBadge: {
+    fontFamily: "var(--font-display)",
+    fontSize: 9,
+    letterSpacing: 1,
+    color: "var(--text-muted)",
+    border: "1px solid var(--border)",
     borderRadius: "var(--radius)",
     padding: "2px 6px",
   },

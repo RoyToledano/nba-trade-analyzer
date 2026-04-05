@@ -11,7 +11,8 @@
       "WebFetch(domain:www.balldontlie.io)",
       "WebFetch(domain:hoopshype.com)",
       "WebFetch(domain:fanspo.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(xargs kill:*)"
     ]
   },
   "hooks": {

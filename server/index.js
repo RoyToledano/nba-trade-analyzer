@@ -29,6 +29,11 @@ function sseEvent(res, event, data) {
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 
+// GET /api/test — health check
+app.get("/api/test", (_req, res) => {
+  res.json({ ok: true, message: "Server is running" });
+});
+
 // GET /api/teams — all 30 NBA teams
 app.get("/api/teams", async (_req, res) => {
   try {

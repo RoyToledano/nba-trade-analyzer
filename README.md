@@ -16,6 +16,34 @@ You pick two teams, mark which players each side is sending, and hit **Analyze**
 
 ---
 
+## Screenshots
+
+### 1. Start
+![Empty state with two team dropdowns](screenshots/demo/1.png)
+Empty state — pick a team on each side to load its roster.
+
+### 2. Build the trade
+![Two rosters loaded with players marked as trading](screenshots/demo/2.png)
+Each roster shows current salary, years left, and total contract value. Click players to move them into "Trading Away"; the badge flags each team's cap/apron status.
+
+### 3. Trade summary and legality check
+![Sends and receives summary with a CBA violation flagged](screenshots/demo/3.png)
+A live sends/receives breakdown with salary totals and the difference. On Analyze, the CBA salary-matching engine runs first — here it flags the Knicks as over their allowable incoming salary.
+
+### 4. Financial detail
+![Per-team cap math table with pass/fail and letter grades](screenshots/demo/4.png)
+Per-team cap math: outgoing / allowable / incoming salary, the matching formula, post-trade cap status, and room to the tax line and both aprons. Pass/fail and a letter grade per side.
+
+### 5. AI analysis
+![Streamed written analysis: short-term and long-term winner sections](screenshots/demo/5.png)
+Claude's writeup streams in word by word — short-term winner, long-term winner, and cap implications, grounded in the legality numbers above.
+
+### 6. Fit, grades, and verdict
+![Fit analysis per player, trade grades, and final verdict](screenshots/demo/6.png)
+Per-team fit analysis with a grade for each incoming player, overall trade grades, a final verdict, and source links.
+
+---
+
 ## Architecture
 
 Three independent Node processes:

@@ -3,4 +3,4 @@ dist/
 .env
 .DS_Store
 NBA_Trade_Analyzer_HLD_v1.1.docx
-screenshots/
+screenshots/*.png

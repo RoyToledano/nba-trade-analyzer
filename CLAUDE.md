@@ -12,9 +12,12 @@ These files document architecture, key assumptions, external integrations, and e
 
 ## Workflow Rules
 
-A `PostToolUse` hook fires automatically after every `Write`, `Edit`, or `MultiEdit` and prompts invocation of the `code-reviewer` agent. When the hook fires, invoke the agent on the exact files that were just modified — not the entire codebase.
+### Code review before every commit
 
-Examples:
-- Wrote `src/api/users.ts` → review `src/api/users.ts`
-- Edited `components/Button.tsx` and `styles/button.css` → review both files
-- Refactored `lib/auth/` folder → review all files touched in that folder
+Before creating any git commit, invoke the `code-reviewer` skill (via the Skill tool, or `/code-reviewer`) and run it against the staged changes. This applies to **every** agent that commits, including subagents.
+
+- Resolve all CRITICAL findings before committing. Re-stage and re-run the skill after fixing.
+- Resolve HIGH findings before committing unless the user has explicitly accepted the risk.
+- MEDIUM / LOW findings: report them, then proceed.
+
+Do not skip the review because a change "looks trivial."
